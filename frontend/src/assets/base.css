@@ -1,0 +1,78 @@
+/* base.css */
+
+/* Color Palette */
+:root {
+  /* Core Monochromes */
+  --c-white: #ffffff;
+  --c-white-soft: #f1f5f9; /* Slate-50 */
+  --c-white-mute: #e2e8f0; /* Slate-200 */
+
+  --c-black: #0f172a;      /* Slate-900 */
+  --c-black-soft: #1e293b; /* Slate-800 */
+  --c-black-mute: #334155; /* Slate-700 */
+
+  /* The "Accent" Color 
+  --c-primary: #3b82f6; 
+  --c-primary-hover: #2563eb;
+
+  /* Borders */
+  --c-divider-light: rgba(60, 60, 60, 0.12);
+  --c-divider-dark: rgba(84, 84, 84, 0.48);
+
+  /* Text Colors */
+  --c-text-light-1: #1e293b;
+  --c-text-light-2: #475569;
+  --c-text-dark-1: #f8fafc;
+  --c-text-dark-2: #cbd5e1;
+}
+
+/* Semantic Variables */
+:root {
+  --color-background: var(--c-white);
+  --color-background-soft: var(--c-white-soft);
+  --color-background-mute: var(--c-white-mute);
+
+  --color-border: var(--c-divider-light);
+  --color-border-hover: var(--c-divider-dark);
+
+  --color-heading: var(--c-text-light-1);
+  --color-text: var(--c-text-light-2);
+
+  --color-accent: var(--c-primary);
+  --color-accent-hover: var(--c-primary-hover);
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: var(--c-black);
+    --color-background-soft: var(--c-black-soft);
+    --color-background-mute: var(--c-black-mute);
+
+    --color-border: var(--c-divider-dark);
+
+    --color-heading: var(--c-text-dark-1);
+    --color-text: var(--c-text-dark-2);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--color-text);
+  background: var(--color-background);
+  transition: color 0.5s, background-color 0.5s;
+  line-height: 1.6;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

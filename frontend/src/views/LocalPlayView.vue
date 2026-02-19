@@ -21,6 +21,15 @@ function handleBoardCreated(api: BoardApi) {
   }
 }
 
+function handleReset() {
+  const isSure = window.confirm(
+    "Are you sure you want to reset the game? This action can't be undone!"
+  );
+  if (isSure && boardApi) {
+    boardApi.resetBoard()
+    sessionStorage.setItem('currentPosition', boardApi.getPgn())
+  }
+}
 
 function handleMove() {
   if (boardApi){
@@ -85,6 +94,10 @@ function swap() {
       @board-created="(api) => handleBoardCreated(api)" 
       @move="handleMove()"
     />
+    <button @click="handleReset()" type="button" name="reset game">
+      Reset
+    </button>
+
     <!-- ToDo: Style for Undo and Swap Buttons. -->
     <button @click="undoLastMove()" type="button" name="Undo move">
       Undo move 
@@ -93,8 +106,6 @@ function swap() {
     <button @click="swap()" type="button" name="SWAP">
       SWAP 
     </button>
-    <!-- ToDo: Reset board button -->
-    
 
   </main>
 </template>

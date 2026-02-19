@@ -18,6 +18,11 @@ function handleBoardCreated(api: BoardApi) {
   const currentPosition = sessionStorage.getItem('currentPosition')
   if (currentPosition) {
     boardApi.loadPgn(currentPosition);
+
+    if (boardApi.getTurnColor() === 'black') {
+      boardApi.toggleOrientation()
+    }
+
   }
 }
 
@@ -33,13 +38,9 @@ function handleReset() {
 
 function handleMove() {
   if (boardApi){
-    flipBoard()
+    boardApi.toggleOrientation()
     sessionStorage.setItem('currentPosition', boardApi.getPgn())
   }
-}
-
-function flipBoard() {
-  boardApi!.toggleOrientation()
 }
 
 /**
@@ -68,7 +69,7 @@ function undoLastMove() {
     }
 
     sessionStorage.setItem('currentPosition', boardApi.getPgn())
-    flipBoard()
+    boardApi.toggleOrientation()
   }
 }
 
@@ -76,7 +77,7 @@ function swap() {
   if (boardApi) {
     const swappedPosition = swapWhiteFirstMove(boardApi.getFen())
     boardApi.setPosition(swappedPosition)
-    flipBoard()
+    boardApi.toggleOrientation()
     
     swapHappened.value = true
     sessionStorage.setItem('swapHappened', 'true')

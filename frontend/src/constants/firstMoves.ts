@@ -1,6 +1,13 @@
 /*
-     ToDO: add comment about '-' bellow
+    The '-' seen in the FEN below is related to en passant moves.
+    While lichess.org only uses it if there's a real possibility of en
+    passant occurring, chess.com always annotates it when a pawn moves two squares.
 
+    e.g, for 1.d4: 
+        lichess: "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1"
+        chess.com: "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1"
+
+    There's no practical difference between the two approaches.
 */
 export enum FirstMove {
     a3 = "rnbqkbnr/pppppppp/8/8/8/P7/1PPPPPPP/RNBQKBNR b KQkq - 0 1",

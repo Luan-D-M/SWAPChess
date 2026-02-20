@@ -31,3 +31,18 @@ export function undoSwapMove(fen: string): string {
 
     return positionBeforeSwap
 }
+
+export function downloadPgn(pgnString: string) {
+  // Convert the text string into a downloadable file object
+  const blob = new Blob([pgnString], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'chess-game.pgn'; 
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url); // Clean up memory
+}

@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { TheChessboard as Chessboard, type BoardApi } from 'vue3-chessboard';
+import { TheChessboard as Chessboard, type BoardApi, type PieceColor } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
-import {swapWhiteFirstMove, undoSwapMove} from '../utils';
+import {swapWhiteFirstMove, undoSwapMove, downloadPgn} from '../utils';
 
 let boardApi: BoardApi | undefined;
 
-const swapHappened = ref(false)
+const swapHappened = ref(false);
 const currentPly = ref(0);   /* Needed for enabling SWAP button. */
+const gameIsDrawn = ref(false);
+const checkmatedColor = ref<PieceColor | ''>('')
 
 onMounted(() => {
   swapHappened.value = sessionStorage.getItem('swapHappened') === 'true'
+  gameIsDrawn.value = sessionStorage.getItem('gameIsDrawn') === 'true'
+  checkmatedColor.value = (sessionStorage.getItem('checkmatedColor') || '') as PieceColor | ''
 });
 
 function handleBoardCreated(api: BoardApi) {
@@ -39,6 +43,25 @@ function handleReset() {
     sessionStorage.setItem('swapHappened', 'false')
     sessionStorage.setItem('currentPosition', boardApi.getPgn())
     currentPly.value = boardApi.getCurrentPlyNumber()
+    cleanEndGameState()
+  }
+}
+
+function handleDraw() {
+  gameIsDrawn.value = true
+}
+
+function handleCheckmate(isMated: PieceColor) {
+  checkmatedColor.value = isMated
+}
+
+function cleanEndGameState() {
+  if (gameIsDrawn.value) {
+    gameIsDrawn.value = false
+    sessionStorage.setItem('gameIsDrawn', 'false')
+  } else if (checkmatedColor.value) {
+    checkmatedColor.value = ''
+    sessionStorage.setItem('checkmatedColor', '')
   }
 }
 
@@ -67,9 +90,9 @@ function swap() {
 /**
  * Undoes the last move and flips the board orientation.
  * Safely checks if the game has started (ply > 0) to avoid errors.
+ * Ply Example: 1.e4 e5 2.Nf3 -> ply number is 3. 
  */
 function undoLastMove() {
-  /* Example: 1.e4 e5 2.Nf3 -> ply number is 3. */
   if (!boardApi) return;
 
   const ply = boardApi.getCurrentPlyNumber();
@@ -100,6 +123,7 @@ function undoLastMove() {
 
   } else {
     boardApi.undoLastMove()
+    cleanEndGameState()
   }
 
   boardApi.toggleOrientation()
@@ -110,15 +134,27 @@ function undoLastMove() {
 
 <template>
   <main>
+    <!-- ToDo: Style for Buttons and ended game messages. -->
+     
+    <h2 v-if="checkmatedColor!==''"> Checkmate! {{ checkmatedColor==='white' ? 'Black' : 'White'  }} wins!</h2>
+    <h2 v-if="gameIsDrawn"> Game ended in a draw! </h2>
+    <button 
+      v-if="gameIsDrawn || checkmatedColor!==''" 
+      type="button"
+      @click="downloadPgn(boardApi!.getPgn())"
+    > 
+      Download PNG
+    </button>
     <Chessboard 
       @board-created="(api) => handleBoardCreated(api)" 
       @move="handleMove()"
+      @checkmate="handleCheckmate"
+      @draw="handleDraw()"
     />
     <button @click="handleReset()" type="button" name="reset game">
       Reset
     </button>
 
-    <!-- ToDo: Style for Buttons. -->
     <button @click="undoLastMove()" type="button" name="Undo move">
       Undo move 
     </button>

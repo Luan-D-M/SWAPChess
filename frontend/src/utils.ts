@@ -32,8 +32,14 @@ export function undoSwapMove(fen: string): string {
     return positionBeforeSwap
 }
 
+/**
+ * Creates an artificial downloadable link and simulates a click on it,
+ * downloading the PGN file.
+ * * @param pgnString PGN (Portable Game Notation) formatted string.
+ */
 export function downloadPgn(pgnString: string) {
   // Convert the text string into a downloadable file object
+  // BLOB: Binary Large OBject
   const blob = new Blob([pgnString], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   

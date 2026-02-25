@@ -3,12 +3,15 @@ import { TheChessboard as Chessboard, type BoardApi, type PieceColor } from 'vue
 import 'vue3-chessboard/style.css';
 import { Engine } from '../engine.ts';
 import { EngineDifficultyLevel } from '@/constants/engineDifficultyLevel';
+import { ref } from 'vue';
 
 /* ToDo: 
          -Session storage for persisting data.
          -Handle checkmate and draw (and download png when finished)
          -Start new game button
 */
+
+const isSwapAllowed = ref(false);
 
 const props = defineProps<{
   difficulty: EngineDifficultyLevel,
@@ -27,7 +30,7 @@ function handleBoardCreated(boardApi: BoardApi) {
     boardAPI.toggleOrientation()
   }
 
-  engine = new Engine(boardApi, engineColor, props.difficulty);
+  engine = new Engine(boardApi, engineColor, props.difficulty, () => {isSwapAllowed.value = true});
 }
 
 function handleMove() {
@@ -41,7 +44,12 @@ function handleMove() {
     }
   });
 
+  if (isSwapAllowed.value) {
+    isSwapAllowed.value = false
+  }
+
   if (moves) {
+    // ToDo: Needs to send the FEN too
     engine?.sendPosition(moves.join(' '));
   }
 }
@@ -53,4 +61,15 @@ function handleMove() {
     @move="handleMove"
     :player-color="props.playerColor"
   />
+  <!-- ToDo: SWAP Button-->
+  
+  <!--
+    <button 
+    @click="swap()" 
+    type="button" 
+    name="SWAP" 
+    :disabled="!isSwapAllowed"
+    >
+  -->
+
 </template>

@@ -6,10 +6,14 @@ import { EngineDifficultyLevel } from './constants/engineDifficultyLevel';
   https://qwerty084.github.io/vue3-chessboard-docs/stockfish.html
   UCI Protocol: https://backscattering.de/chess/uci/
 */
+
+type SwapCallback = () => void;
+
 export class Engine { 
   private boardApi: BoardApi | undefined;
   private engineColor: PieceColor;
   private difficulty: EngineDifficultyLevel;
+  private allowSwap: SwapCallback;
 
   private stockfish: Worker | undefined;
   private logEngineMetadata: boolean = false;
@@ -18,10 +22,17 @@ export class Engine {
   public bestMove: string | null = null;
   public engineName: string | null = null;
 
-  constructor(boardApi: BoardApi, engineColor: PieceColor, difficulty: EngineDifficultyLevel) {
+  constructor(
+    boardApi: BoardApi,
+    engineColor: PieceColor,
+    difficulty: EngineDifficultyLevel,
+    allowSwap: SwapCallback
+  ) 
+  {
     this.boardApi = boardApi;
     this.engineColor = engineColor
     this.difficulty = difficulty
+    this.allowSwap = allowSwap
 
     const wasmSupported =
         typeof WebAssembly === 'object' &&
@@ -68,39 +79,30 @@ export class Engine {
       */
       this.setOption('Analysis Contempt', 'Off');
 
-      this.setOption('UCI_LimitStrength', 'true')
+      /*
+        Stockfish 2019-08-15 64 POPCNT Multi-Variant is originally used here.
+        It uses the option 'Skill Level'. Newer version uses UCI_LimitStrength
+        with UCI_Elo.
+
+        https://official-stockfish.github.io/docs/stockfish-wiki/UCI-&-Commands.html#skill-level
+      */
       switch (this.difficulty) {
         case EngineDifficultyLevel.BEGINNER:
           this.setOption('Skill Level', '0');
-          this.setOption('UCI_Elo', '1000')
           break;
         case EngineDifficultyLevel.EASY:
           this.setOption('Skill Level', '5');
-          this.setOption('UCI_Elo', '1400')
           break;
         case EngineDifficultyLevel.INTERMEDIATE:
           this.setOption('Skill Level', '10');
-          this.setOption('UCI_Elo', '1850')
           break;
         case EngineDifficultyLevel.HARD:
           this.setOption('Skill Level', '15');
-          this.setOption('UCI_Elo', '2200')
           break;
         case EngineDifficultyLevel.IMPOSSIBLE:
           this.setOption('Skill Level', '20');
-          this.setOption('UCI_Elo', '3400')
           break
       }
-
-      this.setOption('Skill Level', '0');
-      /*
-        This specific version of stockfish uses SkillLevel instead of UCI_LimitStrength or UCI_Elo.
-        Skill Level.
-
-        When defining difficulty, use both
-
-        Both are specified in new versions: https://official-stockfish.github.io/docs/stockfish-wiki/UCI-&-Commands.html#skill-level
-      */
 
       this.stockfish?.postMessage('ucinewgame'); 
       this.stockfish?.postMessage('isready');  // Wait for the engine to be ready again.
@@ -113,6 +115,7 @@ export class Engine {
       return;
     }
 
+    // bestmove move1 [ ponder move2 ] --> Is how the engine communicate the best move.
     if (uciStringSplitted[0] === 'bestmove' && uciStringSplitted[1]) {
       if (uciStringSplitted[1] !== this.bestMove) {
         this.bestMove = uciStringSplitted[1];

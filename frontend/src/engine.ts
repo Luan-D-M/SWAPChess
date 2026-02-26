@@ -119,11 +119,17 @@ export class Engine {
     if (uciStringSplitted[0] === 'bestmove' && uciStringSplitted[1]) {
       if (uciStringSplitted[1] !== this.bestMove) {
         this.bestMove = uciStringSplitted[1];
+        console.log(this.bestMove)
         if (this.boardApi?.getTurnColor() === this.engineColor) {
-          this.boardApi.move({
+          this.boardApi.move({  // e.g: e2e4  --> means piece from e2 to e4
             from: this.bestMove.slice(0, 2) as SquareKey,
             to: this.bestMove.slice(2, 4) as SquareKey,
           });
+
+          // After white's first move, callback informing that SWAP is now allowed.
+          if (this.engineColor === 'white' && this.boardApi.getCurrentPlyNumber() === 1) {
+            this.allowSwap()
+          }
         }
       }
     }
@@ -142,11 +148,12 @@ export class Engine {
     } 
   }
 
-  public sendPosition(position: string) {
-    // ToDo: Startpos means the moves are from the initial position. That needs to change.
-    // With SWAP, the initial FEN is different. The UCI command position CAN handle that.
+  public sendPosition(position: string, startingPositionFEN: string) {
+    /* If SWAP happened, the initial FEN is different, that's why 
+    * 'position fen ${startingPositionFEN}' is used instead of 'position startpos'.
+    */
 
-    this.stockfish?.postMessage(`position startpos moves ${position}`); 
+    this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
     this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`);
   }
 }

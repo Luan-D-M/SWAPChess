@@ -50,35 +50,39 @@ function getMoves() {
 }
 
 function handleMove() {
-  const moves = getMoves();
+  isSwapAllowed.value = false
 
-  if (isSwapAllowed.value) {
-    isSwapAllowed.value = false
+  if (boardAPI?.getTurnColor() === props.playerColor) {
+    return;
   }
 
+  // Only send moves to analyze if it is engine's turn.
+  const moves = getMoves();
   if (moves) {
-    // ToDo: Needs to send the FEN too
     engine?.sendPosition(moves.join(' '), startingPosition);
   }
 }
 
 function handleSwap() {
-  if (boardAPI) {
-    isSwapAllowed.value = false
-    let newPosition = swapMap[boardAPI.getFen()]
-
-    if (newPosition) {
-      boardAPI.setPosition(newPosition)
-      startingPosition = newPosition;
-    } else {
-      console.log('Error happened when handling SWAP!')
-    }
-
-    const moves = getMoves();
-    if (moves) {
-      engine?.sendPosition(moves.join(' '), startingPosition);
-    }
+  if (!boardAPI || !engine) {
+    console.log('Error: boardAPI or engine is missing during SWAP!');
+    return;
   }
+  
+  isSwapAllowed.value = false
+  let newPosition = swapMap[boardAPI.getFen()]
+
+  if (newPosition) {
+    startingPosition = newPosition;
+    boardAPI.setPosition(newPosition)
+  } else {
+    console.log('Error happened when handling SWAP!')
+    return
+  }
+
+  engine.bestMove = null; // Otherwise, if engine wants to make the 'same' move again, it would stall.
+  engine?.sendPosition('', startingPosition);
+
 }
 
 </script>

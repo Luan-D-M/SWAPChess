@@ -121,10 +121,8 @@ export class Engine {
         this.bestMove = uciStringSplitted[1];
         console.log(this.bestMove)
         if (this.boardApi?.getTurnColor() === this.engineColor) {
-          this.boardApi.move({  // e.g: e2e4  --> means piece from e2 to e4
-            from: this.bestMove.slice(0, 2) as SquareKey,
-            to: this.bestMove.slice(2, 4) as SquareKey,
-          });
+          // e.g: e2e4  --> means piece from e2 to e4
+          this.boardApi.move(this.bestMove.slice(0, 4));
 
           // After white's first move, callback informing that SWAP is now allowed.
           if (this.engineColor === 'white' && this.boardApi.getCurrentPlyNumber() === 1) {

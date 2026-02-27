@@ -1,6 +1,8 @@
 import { type BoardApi, type PieceColor } from 'vue3-chessboard';
-import { type SquareKey } from 'vue3-chessboard';
 import { EngineDifficultyLevel } from './constants/engineDifficultyLevel';
+import { FirstMoveEvaluated } from './constants/firstMovesEvaluated';
+import type { EvaluatedMove } from './types/evaluatedMove';
+import { getRandomInteger } from './utils';
 /* 
   https://github.com/lichess-org/stockfish.js
   https://qwerty084.github.io/vue3-chessboard-docs/stockfish.html
@@ -15,6 +17,7 @@ export class Engine {
   private difficulty: EngineDifficultyLevel;
   private allowSwap: SwapCallback;
 
+  private isFirstMove = true;
   private stockfish: Worker | undefined;
   private logEngineMetadata: boolean = false;
   private thinkingTimeInMs: number = 2000;
@@ -106,13 +109,26 @@ export class Engine {
 
       this.stockfish?.postMessage('ucinewgame'); 
       this.stockfish?.postMessage('isready');  // Wait for the engine to be ready again.
+      this.isFirstMove = true;
+
       return;
     }
 
     if (uciStringSplitted[0] === 'readyok') {    // Engine is ready.
-      // go movetime <time>: tells the engine to analyze the position for <time> milliseconds.
-      this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`); 
-      return;
+
+      if (this.engineColor === 'white') {
+        if (this.isFirstMove && 
+          this.difficulty !== EngineDifficultyLevel.BEGINNER) 
+          {
+            this.boardApi?.move(this.chooseOpeningMove().move)
+            this.allowSwap()
+          } else {
+            // go movetime <time>: tells the engine to analyze the position for <time> milliseconds.
+            this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`); 
+          }  
+        // After white's first move, callback informing that SWAP is now allowed.
+      }
+      this.isFirstMove = false    
     }
 
     // bestmove move1 [ ponder move2 ] --> Is how the engine communicate the best move.
@@ -123,11 +139,10 @@ export class Engine {
         if (this.boardApi?.getTurnColor() === this.engineColor) {
           // e.g: e2e4  --> means piece from e2 to e4
           this.boardApi.move(this.bestMove.slice(0, 4));
-
-          // After white's first move, callback informing that SWAP is now allowed.
-          if (this.engineColor === 'white' && this.boardApi.getCurrentPlyNumber() === 1) {
-            this.allowSwap()
-          }
+        }
+        
+        if (this.engineColor === 'white' && this.boardApi?.getCurrentPlyNumber() === 1) {
+            this.allowSwap();
         }
       }
     }
@@ -144,6 +159,42 @@ export class Engine {
     if (data.startsWith('option')) {
       console.log("Supported Option:", data);
     } 
+  }
+
+  /**
+   * Arbitrary logic to define the opening move according to engine expertise level.
+   * That's necessary cause engine evaluation doesn't consider the SWAP rule.
+   * 
+   * IMPOSSIBLE level play only the moves evaluated as '0.0' --> ideal for SWAP rule.
+   * 
+   * A BEGINNER doesn't even think about the SWAP rule, so that function does not apply to that level.
+   */
+  private chooseOpeningMove(): EvaluatedMove {
+    const allOpeningMoves = Object.values(FirstMoveEvaluated);
+    let candidateMoves: EvaluatedMove[] = [];
+
+    switch(this.difficulty) {
+      case EngineDifficultyLevel.EASY:
+        candidateMoves = allOpeningMoves.filter(m => Math.abs(m.evaluation) >= 0.4);
+        break;
+      case EngineDifficultyLevel.INTERMEDIATE:  // Neither play the worst moves (g4,f3) neither the best ones.
+        candidateMoves = allOpeningMoves.filter(m => {
+          const absEvaluation = Math.abs(m.evaluation);
+          return absEvaluation >= 0.2 && absEvaluation <= 0.5
+        });
+        break; 
+      case EngineDifficultyLevel.HARD:
+        candidateMoves = allOpeningMoves.filter(m => Math.abs(m.evaluation) <= 0.3);
+        break;
+      case EngineDifficultyLevel.IMPOSSIBLE:
+        // Keep only moves evaluated as '0.0' (best strategy in SWAP scenario).
+        candidateMoves = allOpeningMoves.filter(m => m.evaluation === 0.0);
+        break;
+    }
+
+    const randomIndex = getRandomInteger(0, candidateMoves.length - 1)
+
+    return candidateMoves[randomIndex]!;
   }
 
   public sendPosition(position: string, startingPositionFEN: string) {

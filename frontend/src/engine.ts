@@ -1,8 +1,9 @@
 import { type BoardApi, type PieceColor } from 'vue3-chessboard';
 import { EngineDifficultyLevel } from './constants/engineDifficultyLevel';
 import { FirstMoveEvaluated } from './constants/firstMovesEvaluated';
-import type { EvaluatedMove } from './types/evaluatedMove';
+import type { EvaluatedFirstMove } from './types/evaluatedFirstMove';
 import { getRandomInteger } from './utils';
+import { swapMap } from './constants/swapMaps';
 /* 
   https://github.com/lichess-org/stockfish.js
   https://qwerty084.github.io/vue3-chessboard-docs/stockfish.html
@@ -21,9 +22,11 @@ export class Engine {
   private stockfish: Worker | undefined;
   private logEngineMetadata: boolean = false;
   private thinkingTimeInMs: number = 2000;
-
+  private initialPositionAfterComputerSwaps: string = "";
+  
   public bestMove: string | null = null;
   public engineName: string | null = null;
+
 
   constructor(
     boardApi: BoardApi,
@@ -115,6 +118,7 @@ export class Engine {
     }
 
     if (uciStringSplitted[0] === 'readyok') {    // Engine is ready.
+      this.initialPositionAfterComputerSwaps = ""
 
       if (this.engineColor === 'white') {
         if (this.isFirstMove && 
@@ -169,23 +173,26 @@ export class Engine {
    * 
    * A BEGINNER doesn't even think about the SWAP rule, so that function does not apply to that level.
    */
-  private chooseOpeningMove(): EvaluatedMove {
+  private chooseOpeningMove(): EvaluatedFirstMove {
     const allOpeningMoves = Object.values(FirstMoveEvaluated);
-    let candidateMoves: EvaluatedMove[] = [];
+    let candidateMoves: EvaluatedFirstMove[] = [];
 
     switch(this.difficulty) {
       case EngineDifficultyLevel.EASY:
         candidateMoves = allOpeningMoves.filter(m => Math.abs(m.evaluation) >= 0.4);
         break;
+
       case EngineDifficultyLevel.INTERMEDIATE:  // Neither play the worst moves (g4,f3) neither the best ones.
         candidateMoves = allOpeningMoves.filter(m => {
           const absEvaluation = Math.abs(m.evaluation);
           return absEvaluation >= 0.2 && absEvaluation <= 0.5
         });
         break; 
+
       case EngineDifficultyLevel.HARD:
         candidateMoves = allOpeningMoves.filter(m => Math.abs(m.evaluation) <= 0.3);
         break;
+
       case EngineDifficultyLevel.IMPOSSIBLE:
         // Keep only moves evaluated as '0.0' (best strategy in SWAP scenario).
         candidateMoves = allOpeningMoves.filter(m => m.evaluation === 0.0);
@@ -197,12 +204,91 @@ export class Engine {
     return candidateMoves[randomIndex]!;
   }
 
+  private analyzeSwap(): boolean {
+    let playedSwap = false
+
+    const allOpeningMoves = Object.values(FirstMoveEvaluated);
+    const currentFen = this.boardApi!.getFen()
+    const playedMove = allOpeningMoves.filter((m) => m.fen === currentFen)[0]
+
+    if (!playedMove) {
+      console.log('Error occured. Played move was not found! Ignoring SWAP possibility...')
+      return false 
+    }
+
+    switch (this.difficulty) {
+      case EngineDifficultyLevel.BEGINNER: // Run that case for both BEGGINER and EASY.
+      case EngineDifficultyLevel.EASY:
+        console.log('Considering SWAP...')
+        if (getRandomInteger(1,2) === 1) {
+          this.playSwap()
+          playedSwap = true
+        }
+        break;
+
+      case EngineDifficultyLevel.INTERMEDIATE:
+        console.log('Considering SWAP...')
+         if (getRandomInteger(1,2) === 1) {
+          if (playedMove.evaluation >= -0.3) {
+            this.playSwap()
+            playedSwap = true
+          }
+        }
+        break;
+
+      case EngineDifficultyLevel.HARD:
+        console.log('Considering SWAP...')
+        if (playedMove.evaluation >= -0.2) {
+            this.playSwap()
+            playedSwap = true
+        }
+        break;
+
+      case EngineDifficultyLevel.IMPOSSIBLE:
+        console.log('Considering SWAP...')
+        if (playedMove.evaluation >= 0.0) {
+          this.playSwap()
+          playedSwap = true
+        }
+        break;
+    }
+
+    return playedSwap
+  }
+
+  private playSwap() {
+
+    let newPosition = swapMap[this.boardApi!.getFen()]
+    
+    if (newPosition) {
+      this.initialPositionAfterComputerSwaps = newPosition
+      setTimeout(() => {   // Timeout needed so the animation can run.
+        this.boardApi!.setPosition(newPosition);
+      }, 50);
+    } else {
+      console.log('Error happened when handling SWAP!')
+      return
+    }
+  }
+
   public sendPosition(position: string, startingPositionFEN: string) {
     /* If SWAP happened, the initial FEN is different, that's why 
     * 'position fen ${startingPositionFEN}' is used instead of 'position startpos'.
     */
 
-    this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
-    this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`);
+    let playedSwapThisTurn = false
+    if ( this.engineColor === 'black' && this.boardApi!.getCurrentPlyNumber() === 1) {
+      playedSwapThisTurn = this.analyzeSwap()
+    }
+
+    if (!playedSwapThisTurn) {
+      if (this.initialPositionAfterComputerSwaps !== "") {
+        console.log("RUNNED")
+        this.stockfish?.postMessage(`position fen ${this.initialPositionAfterComputerSwaps} moves ${position}`); 
+      } else {
+        this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
+      }
+      this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`);
+    }
   }
 }

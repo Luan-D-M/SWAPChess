@@ -217,7 +217,7 @@ export class Engine {
     }
 
     switch (this.difficulty) {
-      case EngineDifficultyLevel.BEGINNER: // Run that case for both BEGGINER and EASY.
+      case EngineDifficultyLevel.BEGINNER: // Run that case for both BEGINNER and EASY.
       case EngineDifficultyLevel.EASY:
         console.log('Considering SWAP...')
         if (getRandomInteger(1,2) === 1) {

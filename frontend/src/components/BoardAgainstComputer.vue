@@ -12,6 +12,9 @@ import { swapMap } from '@/constants/swapMaps.ts';
          -Start new game button
 */
 
+const gameEndedInDrawn = ref(false);
+const checkmatedColor = ref('');
+
 const isSwapAllowed = ref(false);
 let startingPosition = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1s';
 
@@ -85,12 +88,24 @@ function handleSwap() {
 
 }
 
+function handleDraw() {
+  gameEndedInDrawn.value = true
+}
+
+function handleCheckmate(isMated: PieceColor) {
+  checkmatedColor.value = isMated
+}
+
 </script>
 
 <template>
+  <h2 v-if="checkmatedColor!==''"> Checkmate! {{ checkmatedColor==='white' ? 'Black' : 'White'  }} wins!</h2>
+  <h2 v-if="gameEndedInDrawn"> Game ended in a draw! </h2>
   <Chessboard
     @board-created="handleBoardCreated"
     @move="handleMove"
+    @draw="handleDraw"
+    @checkmate="handleCheckmate"
     :player-color="props.playerColor"
   />
   

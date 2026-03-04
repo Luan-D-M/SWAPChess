@@ -11,18 +11,19 @@ import { swapMap } from './constants/swapMaps';
 */
 
 type SwapCallback = () => void;
+type UpdateStartingPositionCallback = (newPositionFen: string) => void;
 
 export class Engine { 
   private boardApi: BoardApi | undefined;
   private engineColor: PieceColor;
   private difficulty: EngineDifficultyLevel;
   private allowSwap: SwapCallback;
+  private updateStartingPosition: UpdateStartingPositionCallback
 
   private isFirstMove = true;
   private stockfish: Worker | undefined;
   private logEngineMetadata: boolean = false;
   private thinkingTimeInMs: number = 2000;
-  private initialPositionAfterComputerSwaps: string = "";
   
   public bestMove: string | null = null;
   public engineName: string | null = null;
@@ -32,13 +33,15 @@ export class Engine {
     boardApi: BoardApi,
     engineColor: PieceColor,
     difficulty: EngineDifficultyLevel,
-    allowSwap: SwapCallback
+    allowSwap: SwapCallback,
+    updateStartingPosition: UpdateStartingPositionCallback
   ) 
   {
     this.boardApi = boardApi;
     this.engineColor = engineColor
     this.difficulty = difficulty
     this.allowSwap = allowSwap
+    this.updateStartingPosition = updateStartingPosition
 
     const wasmSupported =
         typeof WebAssembly === 'object' &&
@@ -118,8 +121,6 @@ export class Engine {
     }
 
     if (uciStringSplitted[0] === 'readyok') {    // Engine is ready.
-      this.initialPositionAfterComputerSwaps = ""
-
       if (this.engineColor === 'white') {
         if (this.isFirstMove && 
           this.difficulty !== EngineDifficultyLevel.BEGINNER) 
@@ -246,7 +247,14 @@ export class Engine {
 
       case EngineDifficultyLevel.IMPOSSIBLE:
         console.log('Considering SWAP...')
-        if (playedMove.evaluation >= 0.0) {
+        // If position is equal, 50% of chance of swap
+        if (playedMove.evaluation === 0.0) {
+          if (getRandomInteger(1,2) === 1) {
+            this.playSwap()
+            playedSwap = true
+          }
+        // If there's advanged in swapping, swaps.
+        } else if (playedMove.evaluation > 0.0) {
           this.playSwap()
           playedSwap = true
         }
@@ -261,10 +269,10 @@ export class Engine {
     let newPosition = swapMap[this.boardApi!.getFen()]
     
     if (newPosition) {
-      this.initialPositionAfterComputerSwaps = newPosition
       setTimeout(() => {   // Timeout needed so the animation can run.
         this.boardApi!.setPosition(newPosition);
       }, 50);
+      this.updateStartingPosition(newPosition)
     } else {
       console.log('Error happened when handling SWAP!')
       return
@@ -282,12 +290,7 @@ export class Engine {
     }
 
     if (!playedSwapThisTurn) {
-      if (this.initialPositionAfterComputerSwaps !== "") {
-        console.log("RUNNED")
-        this.stockfish?.postMessage(`position fen ${this.initialPositionAfterComputerSwaps} moves ${position}`); 
-      } else {
-        this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
-      }
+      this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
       this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`);
     }
   }

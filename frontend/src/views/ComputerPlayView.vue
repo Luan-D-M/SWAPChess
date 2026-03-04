@@ -1,10 +1,12 @@
 <script setup lang="ts">
-  import { ref } from 'vue';
+  import { onMounted, ref } from 'vue';
 
   import type { PieceColor } from 'vue3-chessboard';
   import BoardAgainstComputer from '@/components/BoardAgainstComputer.vue';
   import { EngineDifficultyLevel } from '@/constants/engineDifficultyLevel';
   import { getRandomInteger } from '@/utils.ts';
+
+  const storagePrefix = 'vs_computer_mode_'
 
   const gameHasStarted = ref(false)
   const playerColor = ref<PieceColor>('white')
@@ -14,9 +16,28 @@
   const selectedDifficulty = ref<EngineDifficultyLevel>(EngineDifficultyLevel.INTERMEDIATE);
 
 
+  onMounted(() => {
+      gameHasStarted.value = sessionStorage.getItem(`${storagePrefix}gameHasStarted`) === 'true'
+
+      const storedColor = sessionStorage.getItem(`${storagePrefix}playerColor`);
+      if (storedColor !== null) {
+        playerColor.value = storedColor as PieceColor;
+      }
+      const storedDifficulty = sessionStorage.getItem(`${storagePrefix}selectedDifficulty`);
+      if (storedDifficulty !== null) {
+        selectedDifficulty.value = storedDifficulty as EngineDifficultyLevel;
+      }
+    }
+  )
+
+
   function handleGameStart() {
     gameHasStarted.value=true
     playerColor.value = (getRandomInteger(1,10) % 2) ? 'white' : 'black';
+
+    sessionStorage.setItem(`${storagePrefix}gameHasStarted`, 'true')
+    sessionStorage.setItem(`${storagePrefix}playerColor`, playerColor.value)
+    sessionStorage.setItem(`${storagePrefix}selectedDifficulty`, selectedDifficulty.value)
   }
 
 

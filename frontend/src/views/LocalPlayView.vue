@@ -5,6 +5,8 @@ import 'vue3-chessboard/style.css';
 
 import {swapWhiteFirstMove, undoSwapMove, downloadPgn} from '../utils';
 
+const storagePrefix = 'local_mode_'
+
 let boardApi: BoardApi | undefined;
 
 const swapHappened = ref(false);
@@ -13,16 +15,16 @@ const gameIsDrawn = ref(false);
 const checkmatedColor = ref<PieceColor | ''>('')
 
 onMounted(() => {
-  swapHappened.value = sessionStorage.getItem('swapHappened') === 'true'
-  gameIsDrawn.value = sessionStorage.getItem('gameIsDrawn') === 'true'
-  checkmatedColor.value = (sessionStorage.getItem('checkmatedColor') || '') as PieceColor | ''
+  swapHappened.value = sessionStorage.getItem(`${storagePrefix}swapHappened`) === 'true'
+  gameIsDrawn.value = sessionStorage.getItem(`${storagePrefix}gameIsDrawn`) === 'true'
+  checkmatedColor.value = (sessionStorage.getItem(`${storagePrefix}checkmatedColor`) || '') as PieceColor | ''
 });
 
 function handleBoardCreated(api: BoardApi) {
   boardApi = api;
 
   /* Reloads board from session Storage */
-  const currentPosition = sessionStorage.getItem('currentPosition')
+  const currentPosition = sessionStorage.getItem(`${storagePrefix}currentPosition`)
   if (currentPosition) {
     boardApi.loadPgn(currentPosition);
 
@@ -40,8 +42,8 @@ function handleReset() {
   );
   if (isSure && boardApi) {
     boardApi.resetBoard()
-    sessionStorage.setItem('swapHappened', 'false')
-    sessionStorage.setItem('currentPosition', boardApi.getPgn())
+    sessionStorage.setItem(`${storagePrefix}swapHappened`, 'false')
+    sessionStorage.setItem(`${storagePrefix}currentPosition`, boardApi.getPgn())
     currentPly.value = boardApi.getCurrentPlyNumber()
     cleanEndGameState()
   }
@@ -58,17 +60,17 @@ function handleCheckmate(isMated: PieceColor) {
 function cleanEndGameState() {
   if (gameIsDrawn.value) {
     gameIsDrawn.value = false
-    sessionStorage.setItem('gameIsDrawn', 'false')
+    sessionStorage.setItem(`${storagePrefix}gameIsDrawn`, 'false')
   } else if (checkmatedColor.value) {
     checkmatedColor.value = ''
-    sessionStorage.setItem('checkmatedColor', '')
+    sessionStorage.setItem(`${storagePrefix}checkmatedColor`, '')
   }
 }
 
 function handleMove() {
   if (boardApi) {
     boardApi.toggleOrientation()
-    sessionStorage.setItem('currentPosition', boardApi.getPgn())
+    sessionStorage.setItem(`${storagePrefix}currentPosition`, boardApi.getPgn())
     currentPly.value = boardApi.getCurrentPlyNumber()
   }
 }
@@ -80,8 +82,8 @@ function swap() {
     boardApi.toggleOrientation()
     
     swapHappened.value = true
-    sessionStorage.setItem('swapHappened', 'true')
-    sessionStorage.setItem('currentPosition', boardApi.getPgn())
+    sessionStorage.setItem(`${storagePrefix}swapHappened`, 'true')
+    sessionStorage.setItem(`${storagePrefix}currentPosition`, boardApi.getPgn())
 
     currentPly.value = boardApi.getCurrentPlyNumber()
   }
@@ -105,7 +107,7 @@ function undoLastMove() {
   */
   if (ply === 1) {
     boardApi.resetBoard()
-    sessionStorage.setItem('currentPosition', boardApi.getPgn())
+    sessionStorage.setItem(`${storagePrefix}currentPosition`, boardApi.getPgn())
     currentPly.value = ply - 1;  /* Gets updated ply after undoing the move */
 
     return
@@ -119,7 +121,7 @@ function undoLastMove() {
     boardApi.setPosition(positionBeforeSwap)
 
     swapHappened.value = false
-    sessionStorage.setItem('swapHappened', 'false')
+    sessionStorage.setItem(`${storagePrefix}swapHappened`, 'false')
 
   } else {
     boardApi.undoLastMove()
@@ -127,7 +129,7 @@ function undoLastMove() {
   }
 
   boardApi.toggleOrientation()
-  sessionStorage.setItem('currentPosition', boardApi.getPgn())
+  sessionStorage.setItem(`${storagePrefix}currentPosition`, boardApi.getPgn())
   currentPly.value = ply - 1  /* Gets updated ply after undoing the move */
 }
 </script>

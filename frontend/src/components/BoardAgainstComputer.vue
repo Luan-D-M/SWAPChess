@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { TheChessboard as Chessboard, type BoardApi, type PieceColor } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
 import { Engine } from '../engine.ts';
 import { EngineDifficultyLevel } from '@/constants/engineDifficultyLevel';
 import { swapMap } from '@/constants/swapMaps.ts';
+import { downloadPgn } from '@/utils.ts';
 /* ToDo: 
          -Session storage for persisting data.
          -Handle checkmate and draw (and download png when finished)
          -Start new game button
 */
+
+const storagePrefix = 'vs_computer_mode_'
 
 const gameEndedInDrawn = ref(false);
 const checkmatedColor = ref('');
@@ -23,6 +26,22 @@ const props = defineProps<{
   playerColor: PieceColor,
 }>();
 
+
+onMounted( () => {
+  gameEndedInDrawn.value = sessionStorage.getItem(`${storagePrefix}gameEndedInDrawn`) === 'true'
+  isSwapAllowed.value = sessionStorage.getItem(`${storagePrefix}isSwapAllowed`) === 'true'
+
+  const storedCheckmatedColor = sessionStorage.getItem(`${storagePrefix}checkmatedColor`)
+  if (storedCheckmatedColor !== null) {
+    checkmatedColor.value = storedCheckmatedColor
+  }
+  const storedStartingPosition = sessionStorage.getItem(`${storagePrefix}startingPosition`)
+  if (storedStartingPosition !== null) {
+    startingPosition = storedStartingPosition
+  }
+})
+
+
 let boardAPI: BoardApi | undefined;
 let engine: Engine | undefined;
 
@@ -31,11 +50,42 @@ function handleBoardCreated(boardApi: BoardApi) {
 
   const engineColor = props.playerColor === 'white' ? 'black' : 'white'
 
+  const currentPosition = sessionStorage.getItem(`${storagePrefix}currentPosition`)
+  
   if (engineColor === 'white') {
     boardAPI.toggleOrientation()
   }
+  
+  engine = new Engine(boardApi, 
+  engineColor,
+  props.difficulty,
+  allowSwap,
+  updateStartingPosition 
+  );
 
-  engine = new Engine(boardApi, engineColor, props.difficulty, () => {isSwapAllowed.value = true});
+  if (currentPosition !== null) {
+    boardApi.loadPgn(currentPosition);
+
+    if (boardAPI.getTurnColor() === engineColor) {
+        const moves = getMoves();
+        if (moves) {
+          engine?.sendPosition(moves.join(' '), startingPosition);
+        }
+    }
+  } 
+}
+
+function allowSwap() {
+  isSwapAllowed.value = true
+
+  sessionStorage.setItem(`${storagePrefix}isSwapAllowed`, 'true')
+}
+
+function updateStartingPosition(newStartingPositionFEN: string) {
+  startingPosition = newStartingPositionFEN;
+
+  sessionStorage.setItem(`${storagePrefix}startingPosition`, newStartingPositionFEN)
+  sessionStorage.setItem(`${storagePrefix}currentPosition`, boardAPI!.getPgn()) 
 }
 
 function getMoves() {
@@ -54,7 +104,11 @@ function getMoves() {
 
 function handleMove() {
   isSwapAllowed.value = false
+  sessionStorage.setItem(`${storagePrefix}isSwapAllowed`, 'false')
 
+  sessionStorage.setItem(`${storagePrefix}currentPosition`, boardAPI!.getPgn()) 
+
+  // Returns because Engine is supposed to analyze the position only in its turn.
   if (boardAPI?.getTurnColor() === props.playerColor) {
     return;
   }
@@ -73,15 +127,19 @@ function handleSwap() {
   }
   
   isSwapAllowed.value = false
+  sessionStorage.setItem(`${storagePrefix}isSwapAllowed`, 'false')
   let newPosition = swapMap[boardAPI.getFen()]
 
   if (newPosition) {
     startingPosition = newPosition;
+    sessionStorage.setItem(`${storagePrefix}startingPosition`, newPosition)
     boardAPI.setPosition(newPosition)
   } else {
     console.log('Error happened when handling SWAP!')
     return
   }
+
+  sessionStorage.setItem(`${storagePrefix}currentPosition`, boardAPI.getPgn()) 
 
   engine.bestMove = null; // Otherwise, if engine wants to make the 'same' move again, it would stall.
   engine?.sendPosition('', startingPosition);
@@ -90,17 +148,36 @@ function handleSwap() {
 
 function handleDraw() {
   gameEndedInDrawn.value = true
+
+  sessionStorage.setItem(`${storagePrefix}gameEndedInDrawn`, 'true')
 }
 
 function handleCheckmate(isMated: PieceColor) {
   checkmatedColor.value = isMated
+  
+  sessionStorage.setItem(`${storagePrefix}checkmatedColor`, isMated)
 }
 
+function handleNewGameStart() {
+  sessionStorage.setItem(`${storagePrefix}gameEndedInDrawn`, 'false')
+  sessionStorage.setItem(`${storagePrefix}checkmatedColor`, '')
+
+}
 </script>
 
 <template>
-  <h2 v-if="checkmatedColor!==''"> Checkmate! {{ checkmatedColor==='white' ? 'Black' : 'White'  }} wins!</h2>
-  <h2 v-if="gameEndedInDrawn"> Game ended in a draw! </h2>
+  <div class="row">
+    <h2 v-if="checkmatedColor!==''"> Checkmate! {{ checkmatedColor==='white' ? 'Black' : 'White'  }} wins!</h2>
+    <h2 v-if="gameEndedInDrawn"> Game ended in a draw! </h2>
+
+    <button
+      v-if="checkmatedColor!=='' || gameEndedInDrawn"
+      @click="downloadPgn(boardAPI!.getPgn())"
+    >
+      Download PNG!
+    </button>
+  </div>
+
   <Chessboard
     @board-created="handleBoardCreated"
     @move="handleMove"
@@ -109,14 +186,37 @@ function handleCheckmate(isMated: PieceColor) {
     :player-color="props.playerColor"
   />
   
-  <button 
-    @click="handleSwap"
-    type="button" 
-    name="SWAP" 
-    :disabled="!isSwapAllowed"
-  >
-    SWAP
-  </button>
+  <div class="row">
+    <button
+      type="button" 
+      name="Start new game" 
+      @click="handleNewGameStart"
+    >
+      Start New Game
+    </button> 
+
+    <button 
+      @click="handleSwap"
+      type="button" 
+      name="SWAP" 
+      :disabled="!isSwapAllowed"
+    >
+      SWAP
+    </button>
+
+  </div>
   
 
 </template>
+
+
+<style scoped>
+.row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+</style>
+
+

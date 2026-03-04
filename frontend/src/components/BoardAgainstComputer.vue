@@ -7,11 +7,6 @@ import { Engine } from '../engine.ts';
 import { EngineDifficultyLevel } from '@/constants/engineDifficultyLevel';
 import { swapMap } from '@/constants/swapMaps.ts';
 import { downloadPgn } from '@/utils.ts';
-/* ToDo: 
-         -Session storage for persisting data.
-         -Handle checkmate and draw (and download png when finished)
-         -Start new game button
-*/
 
 const storagePrefix = 'vs_computer_mode_'
 
@@ -26,6 +21,9 @@ const props = defineProps<{
   playerColor: PieceColor,
 }>();
 
+const emit = defineEmits<{
+  (e: 'startNewGame'): void
+}>();
 
 onMounted( () => {
   gameEndedInDrawn.value = sessionStorage.getItem(`${storagePrefix}gameEndedInDrawn`) === 'true'
@@ -158,10 +156,15 @@ function handleCheckmate(isMated: PieceColor) {
   sessionStorage.setItem(`${storagePrefix}checkmatedColor`, isMated)
 }
 
+// It is basically a clean up
 function handleNewGameStart() {
-  sessionStorage.setItem(`${storagePrefix}gameEndedInDrawn`, 'false')
-  sessionStorage.setItem(`${storagePrefix}checkmatedColor`, '')
+  sessionStorage.removeItem(`${storagePrefix}gameEndedInDrawn`);
+  sessionStorage.removeItem(`${storagePrefix}checkmatedColor`);
+  sessionStorage.removeItem(`${storagePrefix}isSwapAllowed`);
+  sessionStorage.removeItem(`${storagePrefix}startingPosition`);
+  sessionStorage.removeItem(`${storagePrefix}currentPosition`);
 
+  emit('startNewGame');
 }
 </script>
 

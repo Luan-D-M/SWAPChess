@@ -153,22 +153,43 @@ function undoLastMove() {
       @checkmate="handleCheckmate"
       @draw="handleDraw()"
     />
-    <button @click="handleReset()" type="button" name="reset game">
-      Reset
-    </button>
 
-    <button @click="undoLastMove()" type="button" name="Undo move">
-      Undo move 
-    </button>
-    <!-- ToDo: Red styling when SWAP button is enabled.-->
-    <button 
-      @click="swap()" 
-      type="button" 
-      name="SWAP" 
-      :disabled="currentPly !== 1"
-    >
-      SWAP
-    </button>
+    <div class="row">
+      <div class="buttondiv">
+        <button @click="handleReset()" type="button" name="reset game">
+          Reset
+        </button>
+
+        <button @click="undoLastMove()" type="button" name="Undo move">
+          Undo move 
+        </button>
+
+      </div>
+      
+      <button 
+        @click="swap()" 
+        type="button" 
+        name="SWAP" 
+        :disabled="currentPly !== 1"
+      >
+        SWAP
+      </button>
+    </div>
 
   </main>
 </template>
+
+<style scoped>
+
+.buttondiv {
+  display: flex;
+  gap: 5px
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+</style>

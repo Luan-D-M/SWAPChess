@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import { TheChessboard as Chessboard, type BoardApi, type PieceColor } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
@@ -14,11 +14,10 @@ const currentPly = ref(0);   /* Needed for enabling SWAP button. */
 const gameIsDrawn = ref(false);
 const checkmatedColor = ref<PieceColor | ''>('')
 
-onMounted(() => {
-  swapHappened.value = sessionStorage.getItem(`${storagePrefix}swapHappened`) === 'true'
-  gameIsDrawn.value = sessionStorage.getItem(`${storagePrefix}gameIsDrawn`) === 'true'
-  checkmatedColor.value = (sessionStorage.getItem(`${storagePrefix}checkmatedColor`) || '') as PieceColor | ''
-});
+
+swapHappened.value = sessionStorage.getItem(`${storagePrefix}swapHappened`) === 'true';
+gameIsDrawn.value = sessionStorage.getItem(`${storagePrefix}gameIsDrawn`) === 'true';
+checkmatedColor.value = (sessionStorage.getItem(`${storagePrefix}checkmatedColor`) || '') as PieceColor | '';
 
 function handleBoardCreated(api: BoardApi) {
   boardApi = api;

@@ -59,6 +59,29 @@ export class Engine {
     this.stockfish.postMessage('uci'); // UCI: Universal Chess Interface
   }
 
+  public terminate(): void {
+    this.stockfish?.postMessage('quit');
+    this.stockfish?.terminate();
+    this.stockfish = undefined;
+  }
+
+  public sendPosition(position: string, startingPositionFEN: string) {
+    /* If SWAP happened, the initial FEN is different, that's why 
+    * 'position fen ${startingPositionFEN}' is used instead of 'position startpos'.
+    */
+
+    let playedSwapThisTurn = false
+    if ( this.engineColor === 'black' && this.boardApi!.getCurrentPlyNumber() === 1) {
+      playedSwapThisTurn = this.analyzeSwap()
+    }
+
+    if (!playedSwapThisTurn) {
+      this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
+      this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`);
+    }
+  }
+
+
   private setupListeners(): void {
     this.stockfish?.addEventListener('message', (data) =>
       this.handleEngineStdout(data),
@@ -276,22 +299,6 @@ export class Engine {
     } else {
       console.log('Error happened when handling SWAP!')
       return
-    }
-  }
-
-  public sendPosition(position: string, startingPositionFEN: string) {
-    /* If SWAP happened, the initial FEN is different, that's why 
-    * 'position fen ${startingPositionFEN}' is used instead of 'position startpos'.
-    */
-
-    let playedSwapThisTurn = false
-    if ( this.engineColor === 'black' && this.boardApi!.getCurrentPlyNumber() === 1) {
-      playedSwapThisTurn = this.analyzeSwap()
-    }
-
-    if (!playedSwapThisTurn) {
-      this.stockfish?.postMessage(`position fen ${startingPositionFEN} moves ${position}`); 
-      this.stockfish?.postMessage(`go movetime ${this.thinkingTimeInMs}`);
     }
   }
 }

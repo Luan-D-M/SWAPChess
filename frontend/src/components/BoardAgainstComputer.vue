@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import {onUnmounted, ref } from 'vue';
 import { TheChessboard as Chessboard, type BoardApi, type PieceColor } from 'vue3-chessboard';
 import 'vue3-chessboard/style.css';
 
@@ -7,6 +7,10 @@ import { Engine } from '../engine.ts';
 import { EngineDifficultyLevel } from '@/constants/engineDifficultyLevel';
 import { swapMap } from '@/constants/swapMaps.ts';
 import { downloadPgn } from '@/utils.ts';
+
+onUnmounted(() => {
+  engine?.terminate()
+})
 
 const storagePrefix = 'vs_computer_mode_'
 
@@ -25,25 +29,29 @@ const emit = defineEmits<{
   (e: 'startNewGame'): void
 }>();
 
-onMounted( () => {
-  gameEndedInDrawn.value = sessionStorage.getItem(`${storagePrefix}gameEndedInDrawn`) === 'true'
-  isSwapAllowed.value = sessionStorage.getItem(`${storagePrefix}isSwapAllowed`) === 'true'
 
-  const storedCheckmatedColor = sessionStorage.getItem(`${storagePrefix}checkmatedColor`)
-  if (storedCheckmatedColor !== null) {
-    checkmatedColor.value = storedCheckmatedColor
-  }
-  const storedStartingPosition = sessionStorage.getItem(`${storagePrefix}startingPosition`)
-  if (storedStartingPosition !== null) {
-    startingPosition = storedStartingPosition
-  }
-})
+gameEndedInDrawn.value = sessionStorage.getItem(`${storagePrefix}gameEndedInDrawn`) === 'true'
+isSwapAllowed.value = sessionStorage.getItem(`${storagePrefix}isSwapAllowed`) === 'true'
+
+const storedCheckmatedColor = sessionStorage.getItem(`${storagePrefix}checkmatedColor`)
+if (storedCheckmatedColor !== null) {
+  checkmatedColor.value = storedCheckmatedColor
+}
+const storedStartingPosition = sessionStorage.getItem(`${storagePrefix}startingPosition`)
+if (storedStartingPosition !== null) {
+  startingPosition = storedStartingPosition
+}
 
 
 let boardAPI: BoardApi | undefined;
 let engine: Engine | undefined;
 
 function handleBoardCreated(boardApi: BoardApi) {
+  // Needed for 'Start New Game' option
+  if (engine) {
+    engine.terminate();
+  }
+
   boardAPI = boardApi;
 
   const engineColor = props.playerColor === 'white' ? 'black' : 'white'

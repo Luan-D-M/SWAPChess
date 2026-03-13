@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { onMounted, ref } from 'vue';
+  import { ref } from 'vue';
 
   import type { PieceColor } from 'vue3-chessboard';
   import BoardAgainstComputer from '@/components/BoardAgainstComputer.vue';
@@ -12,23 +12,18 @@
   const playerColor = ref<PieceColor>('white')
 
   const difficultyOptions = Object.values(EngineDifficultyLevel);
-
   const selectedDifficulty = ref<EngineDifficultyLevel>(EngineDifficultyLevel.INTERMEDIATE);
 
+  gameHasStarted.value = sessionStorage.getItem(`${storagePrefix}gameHasStarted`) === 'true'
 
-  onMounted(() => {
-      gameHasStarted.value = sessionStorage.getItem(`${storagePrefix}gameHasStarted`) === 'true'
-
-      const storedColor = sessionStorage.getItem(`${storagePrefix}playerColor`);
-      if (storedColor !== null) {
-        playerColor.value = storedColor as PieceColor;
-      }
-      const storedDifficulty = sessionStorage.getItem(`${storagePrefix}selectedDifficulty`);
-      if (storedDifficulty !== null) {
-        selectedDifficulty.value = storedDifficulty as EngineDifficultyLevel;
-      }
-    }
-  )
+  const storedColor = sessionStorage.getItem(`${storagePrefix}playerColor`);
+  if (storedColor !== null) {
+    playerColor.value = storedColor as PieceColor;
+  }
+  const storedDifficulty = sessionStorage.getItem(`${storagePrefix}selectedDifficulty`);
+  if (storedDifficulty !== null) {
+    selectedDifficulty.value = storedDifficulty as EngineDifficultyLevel;
+  }
 
   function handleGameStart() {
     gameHasStarted.value=true
@@ -51,8 +46,6 @@
 </script>
 
 <template>
-
-  <!-- ToDo: Create style        -->
 
   <div v-if="!gameHasStarted" class="dropdown-container" >
     <label for="difficulty">Choose difficulty level:</label>

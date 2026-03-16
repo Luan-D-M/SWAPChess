@@ -32,6 +32,7 @@ const emit = defineEmits<{
 
 gameEndedInDrawn.value = sessionStorage.getItem(`${storagePrefix}gameEndedInDrawn`) === 'true'
 isSwapAllowed.value = sessionStorage.getItem(`${storagePrefix}isSwapAllowed`) === 'true'
+console.log(`Got isSwapAllowed value: ${isSwapAllowed.value}`)
 
 const storedCheckmatedColor = sessionStorage.getItem(`${storagePrefix}checkmatedColor`)
 if (storedCheckmatedColor !== null) {

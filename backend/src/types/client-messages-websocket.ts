@@ -1,5 +1,7 @@
 import { TraditionalChessMove } from "./game.js";
 
+// ToDo: organize the order? 
+
 // Host after creating a challenge
 export interface MonitorChallengeMessage {
     type: 'MONITOR_CHALLENGE';
@@ -51,10 +53,39 @@ export interface ResignMessage {
     };
 }
 
+export interface RematchOfferMessage {
+    type: 'REMATCH_OFFER';
+    payload: {
+        gameId: string;
+        playerId: string;
+    };
+}
+
+export interface AcceptRematchOfferMessage {
+    type: 'ACCEPT_REMATCH_OFFER';
+    payload: {
+        gameId: string;
+        playerId: string;
+    };
+}
+
+
+export interface RejoinGameMessage {
+    type: 'REJOIN_GAME';
+    payload: {
+        gameId: string;
+        playerId: string;
+    };
+}
+
+
 export type ClientMessage = 
     | MonitorChallengeMessage 
     | AcceptChallengeMessage 
     | MakeMoveMessage 
     | DrawOfferMessage
     | AcceptDrawOfferMessage
-    | ResignMessage;
+    | ResignMessage
+    | RematchOfferMessage
+    | AcceptRematchOfferMessage
+    | RejoinGameMessage;

@@ -1,5 +1,7 @@
 import { TraditionalChessMove } from "./game.js";
 
+// ToDo: organize the order? Some should be broadcasted, some shouldnt.
+
 // After a player successfully entered a room
 export interface RoomJoinedMessage {
     type: 'ROOM_JOINED';
@@ -52,11 +54,34 @@ export interface DrawOfferedMessage {
         gameId: string;
     };
 }
-export interface OpponentDisconnectedMessage {
-    type: 'OPPONENT_DISCONNECTED';
+
+export interface RematchOfferedMessage {
+    type: 'REMATCH_OFFERED';
     payload: {
         gameId: string;
-        message: string;
+    };
+}
+
+export interface RematchAcceptedMessage {
+    type: 'REMATCH_ACCEPTED';
+    payload: {
+        oldGameId: string;
+        newGameId: string; // A new Game ID for the rematch must be generated
+    };
+}
+
+// Used when a player rejoins in the game 
+export interface SyncGameMessage {   
+    type: 'SYNC_GAME';
+    payload: {
+        gameId: string;
+        fen: string; 
+        turn: 'white' | 'black';
+        whitePlayerId: string;
+        blackPlayerId: string;
+        whiteTimeRemaining: number;
+        blackTimeRemaining: number;
+        pendingDrawOfferFrom?: string | null;
     };
 }
 
@@ -73,5 +98,8 @@ export type ServerMessage =
     | GameStartedMessage 
     | MoveProcessedMessage 
     | GameOverMessage
-    | OpponentDisconnectedMessage
+    | DrawOfferedMessage
+    | RematchOfferedMessage
+    | RematchAcceptedMessage
+    | SyncGameMessage
     | ErrorMessage;

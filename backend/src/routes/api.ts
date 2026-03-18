@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 
 import {CreateChallengeBody, CreateChallengeResponse} from './api-types.js'
-import { getRandomInteger } from '../utils/randomInteger.js';
 import { challengeService } from '../index.js';
 
 const router = Router();
@@ -20,7 +19,7 @@ router.post(
             req.body.timeControl 
         )
 
-        return { challengeId }
+        res.status(201).json({ challengeId })
     }
 );
 

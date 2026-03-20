@@ -4,78 +4,77 @@ import { TraditionalChessMove } from "./game.js";
 
 // Host after creating a challenge
 export interface MonitorChallengeMessage {
-    type: 'MONITOR_CHALLENGE';
+    type: 'MONITOR_CHALLENGE',
     payload: {
-        challengeId: string;
-        playerId: string;
-    };
+        challengeId: string,
+        playerId: string,
+    }
 }
 
 // Player to accept an challenge offer
 export interface AcceptChallengeMessage {
-    type: 'ACCEPT_CHALLENGE';
+    type: 'ACCEPT_CHALLENGE',
     payload: {
-        challengeId: string;
-        playerId: string;
-    };
+        challengeId: string,
+        playerId: string,
+    }
 }
 
 export interface MakeMoveMessage {
-    type: 'MAKE_MOVE';
+    type: 'MAKE_MOVE',
     payload: {
-        gameId: string;
-        playerId: string;
-        move: TraditionalChessMove | 'swap';
-    };
+        gameId: string,
+        playerId: string,
+        move: TraditionalChessMove | 'swap',
+    }
 }
 
 export interface DrawOfferMessage {
-    type: 'DRAW_OFFER';
+    type: 'DRAW_OFFER',
     payload: {
-        gameId: string;
-        playerId: string;
-    };
+        gameId: string,
+        playerId: string,
+    },
 }
 
 export interface AcceptDrawOfferMessage {
-    type: 'ACCEPT_DRAW_OFFER';
+    type: 'ACCEPT_DRAW_OFFER',
     payload: {
-        gameId: string;
-        playerId: string;
-    };
+        gameId: string,
+        playerId: string,
+    }
 }
 
 export interface ResignMessage {
-    type: 'RESIGN';
+    type: 'RESIGN',
     payload: {
-        gameId: string;
-        playerId: string;
-    };
+        gameId: string,
+        playerId: string,
+    }
 }
 
 export interface RematchOfferMessage {
-    type: 'REMATCH_OFFER';
+    type: 'REMATCH_OFFER',
     payload: {
-        gameId: string;
-        playerId: string;
-    };
+        gameId: string,
+        playerId: string,
+    }
 }
 
 export interface AcceptRematchOfferMessage {
-    type: 'ACCEPT_REMATCH_OFFER';
+    type: 'ACCEPT_REMATCH_OFFER',
     payload: {
-        gameId: string;
-        playerId: string;
-    };
+        gameId: string,
+        playerId: string,
+    }
 }
 
-
 export interface RejoinGameMessage {
-    type: 'REJOIN_GAME';
+    type: 'REJOIN_GAME',
     payload: {
-        gameId: string;
-        playerId: string;
-    };
+        gameId: string,
+        playerId: string,
+    }
 }
 
 

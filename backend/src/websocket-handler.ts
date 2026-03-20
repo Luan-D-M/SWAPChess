@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { ClientMessage } from "./types/client-messages-websocket.js";
 import { TraditionalChessMove } from "./types/game.js";
+import { ChallengeService } from "./challenge-service.js";
 
 type HandlerMap = {
     [K in ClientMessage['type']]: (
@@ -9,7 +10,7 @@ type HandlerMap = {
     ) => void | Promise<void>;
 };
 
-class WebSocketHandler {
+export class WebSocketHandler {
     private wss?: WebSocketServer;
 
     private rooms = new Map<string, Set<WebSocket>>();
@@ -27,7 +28,9 @@ class WebSocketHandler {
     };
 
 
-    constructor() {}
+    constructor(private readonly challengeService: ChallengeService) {
+        this.challengeService = challengeService
+    }
 
     public startServer(port: number) {
         this.wss = new WebSocketServer({ port });

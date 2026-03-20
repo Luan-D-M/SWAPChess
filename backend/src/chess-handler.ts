@@ -2,10 +2,8 @@ import { Chess, Move } from 'chess.js'
 
 import { IGameRepository } from './interfaces/IGameRepository.js';
 import { Game, TraditionalChessMove } from './types/game.js';
+import { checkSwapAvailability, getFenAfterSwap } from './swap-logic.js';
 
-// ToDo: 
-//       - check if swap is avaible in the next move (based on ply and actual colors turn)
-//       - Swap handler  
 // ToDo: implement draw when player1 clocks zeroed but opponent has insufficient material.
 
 export class ChessHandler {
@@ -14,7 +12,6 @@ export class ChessHandler {
     public async makeMove(gameId: string, move: TraditionalChessMove | 'swap', playerId: string) {
         
         const game = await this.gameRepository.getById(gameId)
-
         // Validations
         if (!game) throw new Error(`Game not found. GameId: ${gameId}`);
         if (game.gameEnded) throw new Error("Game is already over");
@@ -36,7 +33,8 @@ export class ChessHandler {
 
         // Make Move
         if (move === 'swap') {
-            //ToDo
+            const swappedPosition = getFenAfterSwap(chessboard.fen())
+            chessboard.load(swappedPosition)
         } else {
             try {
                 chessboard.move(move as Move);
@@ -58,6 +56,7 @@ export class ChessHandler {
         this.updateClock(game, movingPlayerId)
         this.handleImplicitDrawRefusal(game, movingPlayerId)
         this.toggleGameTurn(game)
+        this.updateSwapAvailability(game, chessboard)
         this.updateGameEndedStatus(game, chessboard);
     }
 
@@ -93,6 +92,10 @@ export class ChessHandler {
 
     private toggleGameTurn(game: Game) {
         game.turn = (game.turn === 'white') ? 'black' : 'white'
+    }
+
+    private updateSwapAvailability(game: Game, chessboard: Chess) {
+         game.swapAllowed = checkSwapAvailability(chessboard.fen())
     }
 
     private updateGameEndedStatus(game: Game, chessboard: Chess) {

@@ -2,8 +2,7 @@ export type GameEndedReasons = 'timeout'
     | 'checkmate'
     | 'draw' 
 
-
-
+    
 export type Game = {
     id: string,
     fen: string,  

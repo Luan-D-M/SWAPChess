@@ -5,16 +5,27 @@ import { MemoryChallengeRepository } from "./repositories/memory-challenge-repos
 import { ChallengeService } from "./challenge-service.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import { WebSocketHandler } from "./websocket-handler.js";
+import { MemoryGameRepository } from "./repositories/memory-game-repository.js";
+import { ChessHandler } from "./chess-handler.js";
 
 console.log('Hello, world!')
 const port = 3000; // ToDo: configute it with .env file
 
-const challengeRepository = new MemoryChallengeRepository();  // Soon: REDIS challenge repository based on env variable
+
+// Soon: REDIS repositories based on env variable
+const challengeRepository = new MemoryChallengeRepository();  
+const gameRepository = new MemoryGameRepository()
 
 // Could be cleaner: Depency injection instead of a Singleton
 export const challengeService = new ChallengeService(challengeRepository);
 
-export const websocketHandler = new WebSocketHandler(challengeService)
+const chessHandler = new ChessHandler(gameRepository)
+
+export const websocketHandler = new WebSocketHandler(
+    challengeRepository,
+    gameRepository,
+    chessHandler
+  )
 
 const app = express();
 app.use(express.json());

@@ -26,7 +26,7 @@ export interface GameStartedMessage {
         blackPlayerId: string,
         fen: string,
         timeControl: {
-            minutes: number,
+            seconds: number,
             increment: number,
         },
     }
@@ -71,7 +71,8 @@ export interface RoomJoinedMessage {
     type: 'ROOM_JOINED',
     payload: {
         gameId: string,
-        playerId: string
+        playerId: string,
+        playerColor: 'white' | 'black'
     }
 }
 

@@ -16,7 +16,6 @@ export interface MonitorChallengeMessage {
     type: 'MONITOR_CHALLENGE',
     payload: {
         challengeId: string,
-        playerId: string,
     }
 }
 
@@ -25,7 +24,6 @@ export interface AcceptChallengeMessage {
     type: 'ACCEPT_CHALLENGE',
     payload: {
         challengeId: string,
-        playerId: string,
     }
 }
 

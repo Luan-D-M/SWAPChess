@@ -70,7 +70,8 @@ export interface RematchAcceptedMessage {
 export interface RoomJoinedMessage {
     type: 'ROOM_JOINED',
     payload: {
-        challengeId: string,
+        gameId: string,
+        playerId: string
     }
 }
 

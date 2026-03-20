@@ -1,7 +1,11 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { ClientMessage } from "./types/client-messages-websocket.js";
-import { TraditionalChessMove } from "./types/game.js";
-import { ChallengeService } from "./challenge-service.js";
+import { Game, TraditionalChessMove } from "./types/game.js";
+import { randomUUID } from "node:crypto";
+import { IChallengeRepository } from "./interfaces/IChallengeRepository.js";
+import { IGameRepository } from "./interfaces/IGameRepository.js";
+import { ChessHandler } from "./chess-handler.js";
+import { startingPositionInFen } from "./constants/startingPosition.js";
 
 type HandlerMap = {
     [K in ClientMessage['type']]: (
@@ -13,7 +17,8 @@ type HandlerMap = {
 export class WebSocketHandler {
     private wss?: WebSocketServer;
 
-    private rooms = new Map<string, Set<WebSocket>>();
+    private playerConnections = new Map<string, WebSocket | null>();
+    private rooms = new Map<string, Set<string>>();
 
     private handlers: HandlerMap = {
         'MONITOR_CHALLENGE':    (ws, payload) => this.handleMonitor(ws, payload),
@@ -28,9 +33,11 @@ export class WebSocketHandler {
     };
 
 
-    constructor(private readonly challengeService: ChallengeService) {
-        this.challengeService = challengeService
-    }
+    constructor(
+        private readonly challengeRepository: IChallengeRepository,
+        private readonly gameRepository: IGameRepository,
+        private readonly chessHandler: ChessHandler
+    ) { }
 
     public startServer(port: number) {
         this.wss = new WebSocketServer({ port });
@@ -38,20 +45,20 @@ export class WebSocketHandler {
         this.wss.on('connection', (ws: WebSocket) => {
             console.log('New client connected');
 
-            ws.on('message', (raw) => this.handleMessage(ws, raw.toString()));
-            ws.on('close', () => this.handleDisconnect(ws));
+            ws.on('message', async (raw) => await this.handleMessage(ws, raw.toString()));
+            ws.on('close', async () => await this.handleDisconnect(ws));
         });
 
         console.log(`WebSocket server started on port ${port}`);
     }
 
-    private handleMessage(ws: WebSocket, data: string) {
+    private async handleMessage(ws: WebSocket, data: string) {
         try {
             const message = JSON.parse(data) as ClientMessage;
             const handler = this.handlers[message.type];
             
             if (handler) {
-                handler(ws, message.payload as any); 
+                await handler(ws, message.payload as any); 
             } else {
                 console.warn(`No handler found for message type: ${message.type}`);
             }
@@ -63,27 +70,65 @@ export class WebSocketHandler {
             }));
         }
     }
-    private handleDisconnect(ws: WebSocket) {
+    private async handleDisconnect(ws: WebSocket) {
         // ToDo: How to reconnect?
     }
 
-    private handleMonitor(ws: WebSocket, payload: { challengeId: string; playerId: string }) {}
+    private async handleMonitor(ws: WebSocket, payload: { challengeId: string; }) {
+        const challenge = await this.challengeRepository.getById(payload.challengeId)
+        if (!challenge) {
+            return // ToDo: Handle Challenge not found
+        }
+
+        const gameId = randomUUID()   // It's the roomId
+        const hostId = randomUUID()
+        const player2Id = randomUUID()
+
+        this.rooms.set(gameId, new Set([hostId, player2Id]))
+        this.playerConnections.set(hostId, ws)
+        this.playerConnections.set(player2Id, null)
+
+        challenge.hostColor
+
+        const initialTime = challenge.timeControl.baseTimeMinutes * 60 + challenge.timeControl.baseTimeSeconds
+
+        const game: Game = {
+            id: gameId,
+            fen: startingPositionInFen,
+            pgn: ,  // ToDo: Add pgn to constants/startingPosition.ts. How is the initial position pgn?
+            whitePlayerId: challenge.hostColor === 'white' ? hostId : player2Id,
+            blackPlayerId: challenge.hostColor === 'black' ? hostId : player2Id,
+            turn: 'white',
+            swapAllowed: false,
+            whiteTimeRemainingInSeconds: initialTime,
+            blackTimeRemainingInSeconds: initialTime,
+            lastMoveTimestamp: null,
+            increment: challenge.timeControl.incrementSeconds,
+            pendingDrawOfferFrom: null, 
+            gameEnded: false,
+            winnerId: null           
+        }
+
+        this.gameRepository.save(game)
+
+        // ToDo: Sends ROOM_JOINED to host.
+    }
     
-    private handleAccept(ws: WebSocket, payload: { challengeId: string; playerId: string }) {}
+    private async handleAccept(ws: WebSocket, payload: { challengeId: string }) {}
     
-    private handleMove(ws: WebSocket, payload: { gameId: string; playerId: string; move: TraditionalChessMove | 'swap' }) {}
+    private async handleMove(ws: WebSocket, payload: { gameId: string, playerId: string, move: TraditionalChessMove | 'swap' }) {}
     
-    private handleDrawOffer(ws: WebSocket, payload: { gameId: string; playerId: string }) {}
+    private async handleDrawOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private handleDrawAccept(ws: WebSocket, payload: { gameId: string; playerId: string }) {}
+    private async handleDrawAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private handleResign(ws: WebSocket, payload: { gameId: string; playerId: string }) {}
+    private async handleResign(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private handleRematchOffer(ws: WebSocket, payload: { gameId: string; playerId: string }) {}
+    private async handleRematchOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private handleRematchAccept(ws: WebSocket, payload: { gameId: string; playerId: string }) {}
+    private async handleRematchAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private handleRejoin(ws: WebSocket, payload: { gameId: string; playerId: string }) {}
+    private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
 
 
 

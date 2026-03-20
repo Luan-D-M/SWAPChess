@@ -46,7 +46,7 @@ export class WebSocketHandler {
             console.log('New client connected');
 
             ws.on('message', async (raw) => await this.handleMessage(ws, raw.toString()));
-            ws.on('close', async () => await this.handleDisconnect(ws));
+            ws.on('close', () => this.handleDisconnect(ws));
         });
 
         console.log(`WebSocket server started on port ${port}`);
@@ -132,12 +132,29 @@ export class WebSocketHandler {
         }
     }
 
+    /**
+     * Handles disconnection, e.g: player closes the game tab or refreshes the page.
+     * This handling is essential, allowing player to reconnect later.
+     * 
+     * There's no heartbeat, so if the internet of a player goes down, for example,
+     * their clock will simply run out.
+     */
+    private handleDisconnect(ws: WebSocket) {
+        let disconnectedPlayerId: string | undefined;
 
-    private async handleDisconnect(ws: WebSocket) {
-        // ToDo: How to reconnect? When a connection is closed? --> cause handleAccept is based on
-        // the null connection value for finding the players Id.
+        // Find which player this socket belongs to
+        for (const [playerId, socket] of this.playerConnections.entries()) {
+            if (socket === ws) {
+                disconnectedPlayerId = playerId;
+                break;
+            }
+        }
+        if (!disconnectedPlayerId) return; // Socket wasn't registered yet
+
+        // Nullify the connection to allow for a future rejoin
+        this.playerConnections.set(disconnectedPlayerId, null);
+        console.log(`Player ${disconnectedPlayerId} disconnected.`);
     }
-
 
     private async handleMonitor(ws: WebSocket, payload: { challengeId: string; }) {
         const challenge = await this.challengeRepository.getById(payload.challengeId)
@@ -262,6 +279,8 @@ export class WebSocketHandler {
         await this.challengeRepository.delete(payload.challengeId);
     }
     
+    private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
+    
     private async handleMove(ws: WebSocket, payload: { gameId: string, playerId: string, move: TraditionalChessMove | 'swap' }) {}
     
     private async handleDrawOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
@@ -274,6 +293,5 @@ export class WebSocketHandler {
     
     private async handleRematchAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
 
 }

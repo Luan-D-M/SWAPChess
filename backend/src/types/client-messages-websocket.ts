@@ -1,6 +1,15 @@
 import { TraditionalChessMove } from "./game.js";
 
-// ToDo: organize the order? 
+export type ClientMessage = 
+    | MonitorChallengeMessage 
+    | AcceptChallengeMessage 
+    | MakeMoveMessage 
+    | DrawOfferMessage
+    | AcceptDrawOfferMessage
+    | ResignMessage
+    | RematchOfferMessage
+    | AcceptRematchOfferMessage
+    | RejoinGameMessage;
 
 // Host after creating a challenge
 export interface MonitorChallengeMessage {
@@ -76,15 +85,3 @@ export interface RejoinGameMessage {
         playerId: string,
     }
 }
-
-
-export type ClientMessage = 
-    | MonitorChallengeMessage 
-    | AcceptChallengeMessage 
-    | MakeMoveMessage 
-    | DrawOfferMessage
-    | AcceptDrawOfferMessage
-    | ResignMessage
-    | RematchOfferMessage
-    | AcceptRematchOfferMessage
-    | RejoinGameMessage;

@@ -1,14 +1,22 @@
 import { TraditionalChessMove } from "./game.js";
 
-// ToDo: organize the order? Some should be broadcasted, some shouldnt.
+// Messages that are supposed to be broadcasted in the game room
+export type BroadcastMessage = 
+    | GameStartedMessage 
+    | MoveProcessedMessage 
+    | GameOverMessage
+    | RematchAcceptedMessage;
 
-// After a player successfully entered a room
-export interface RoomJoinedMessage {
-    type: 'ROOM_JOINED',
-    payload: {
-        challengeId: string,
-    }
-}
+// Messages that are supposed to be casted to ONE specific player.
+export type TargetedMessage = 
+    | RoomJoinedMessage
+    | SyncGameMessage
+    | DrawOfferedMessage
+    | RematchOfferedMessage
+    | ErrorMessage;
+
+export type ServerMessage = BroadcastMessage | TargetedMessage;
+
 
 export interface GameStartedMessage {
     type: 'GAME_STARTED',
@@ -31,9 +39,10 @@ export interface MoveProcessedMessage {
         fen: string,
         lastMove: TraditionalChessMove | 'swap'
         turn: 'white' | 'black',
+        swapAllowed: boolean,
         timeControl: {
-            whiteTimeRemaining: number,
-            blackTimeRemaining: number,
+            whiteTimeRemainingInSeconds: number,
+            blackTimeRemainingInSeconds: number,
             increment: number
         }
     }
@@ -45,6 +54,40 @@ export interface GameOverMessage {
         gameId: string,
         reason: 'checkmate' | 'draw' | 'resignation' | 'timeout' | 'draw-by-agreement',
         winnerId: string | null, 
+    }
+}
+
+export interface RematchAcceptedMessage {
+    type: 'REMATCH_ACCEPTED',
+    payload: {
+        oldGameId: string,
+        newGameId: string, // A new Game ID for the rematch must be generated
+    }
+}
+
+
+// After a player successfully entered a room
+export interface RoomJoinedMessage {
+    type: 'ROOM_JOINED',
+    payload: {
+        challengeId: string,
+    }
+}
+
+// Used when a player rejoins in the game 
+export interface SyncGameMessage {   
+    type: 'SYNC_GAME',
+    payload: {
+        gameId: string,
+        fen: string,
+        turn: 'white' | 'black',
+        whitePlayerId: string,
+        blackPlayerId: string,
+        whiteTimeRemainingInSeconds: number,
+        blackTimeRemainingInSeconds: number,
+        increment: number,
+        swapAllowed: boolean,
+        pendingDrawOfferFrom?: string | null
     }
 }
 
@@ -62,30 +105,6 @@ export interface RematchOfferedMessage {
     }
 }
 
-export interface RematchAcceptedMessage {
-    type: 'REMATCH_ACCEPTED',
-    payload: {
-        oldGameId: string,
-        newGameId: string, // A new Game ID for the rematch must be generated
-    }
-}
-
-// Used when a player rejoins in the game 
-export interface SyncGameMessage {   
-    type: 'SYNC_GAME',
-    payload: {
-        gameId: string,
-        fen: string,
-        turn: 'white' | 'black',
-        whitePlayerId: string,
-        blackPlayerId: string,
-        whiteTimeRemaining: number,
-        blackTimeRemaining: number,
-        increment: number,
-        pendingDrawOfferFrom?: string | null
-    }
-}
-
 export interface ErrorMessage {
     type: 'ERROR',
     payload: {
@@ -93,15 +112,3 @@ export interface ErrorMessage {
         message: string,
     }
 }
-
-
-export type ServerMessage = 
-    | RoomJoinedMessage
-    | GameStartedMessage 
-    | MoveProcessedMessage 
-    | GameOverMessage
-    | DrawOfferedMessage
-    | RematchOfferedMessage
-    | RematchAcceptedMessage
-    | SyncGameMessage
-    | ErrorMessage;

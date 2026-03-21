@@ -52,36 +52,6 @@ export class WebSocketHandler {
         console.log(`WebSocket server started on port ${port}`);
     }
 
-    private broadcastToRoom(gameId: string, message: string) {
-        const roomPlayers = this.rooms.get(gameId);
-        if (!roomPlayers) { return; }
-
-        for (const playerId of roomPlayers) {
-            const playerWs = this.playerConnections.get(playerId);
-            
-            // Only send if the connection exists and is currently open
-            if (playerWs && playerWs.readyState === WebSocket.OPEN) {
-                playerWs.send(message);
-            }
-        }
-    }
-    
-    private sendErrorMessage(ws : WebSocket, payload: {code: string, message: string}) {
-        console.error(`Error message sent (${payload.code}): ${payload.message}`);
-
-        ws.send(
-            JSON.stringify(
-                {
-                    type: 'ERROR',
-                    payload: { 
-                        code: payload.code, 
-                        message: payload.message 
-                    }
-                }
-            )
-        )
-    }
-
     private async handleMessage(ws: WebSocket, data: string) {
         let message: ClientMessage;
 
@@ -185,11 +155,13 @@ export class WebSocketHandler {
             blackPlayerId: challenge.hostColor === 'black' ? hostId : player2Id,
             turn: 'white',
             swapAllowed: false,
+            baseTimeInSeconds: initialTime,
             whiteTimeRemainingInSeconds: initialTime,
             blackTimeRemainingInSeconds: initialTime,
             lastMoveTimestamp: null,   // Must be set at handleAccept
             increment: challenge.timeControl.incrementSeconds,
             pendingDrawOfferFrom: null, 
+            pendingRematchOfferFrom: null,
             gameEnded: false,
             winnerId: null           
         }
@@ -334,14 +306,7 @@ private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: s
     }
 
     private async handleResign(ws: WebSocket, payload: { gameId: string, playerId: string }) {
-        const game = await this.gameRepository.getById(payload.gameId);
-
-        if (!game) throw new Error('Game not found');
-        if (game.gameEnded) throw new Error('Game has already ended');
-        
-        if (game.whitePlayerId !== payload.playerId && game.blackPlayerId !== payload.playerId) {
-            throw new Error('Player does not belong to this game');
-        }
+        const game = await this.getValidatedActiveGame(payload.gameId, payload.playerId)
 
         // The winner is the player who DID NOT send the resign message
         const winnerId = game.whitePlayerId === payload.playerId ? game.blackPlayerId : game.whitePlayerId;
@@ -362,16 +327,227 @@ private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: s
         }));
     }
 
-    private async handleMove(ws: WebSocket, payload: { gameId: string, playerId: string, move: TraditionalChessMove | 'swap' }) {}
-    
-    private async handleDrawOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
-    
-    private async handleDrawAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
-    
-    
-    private async handleRematchOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
-    
-    private async handleRematchAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
-    
+    private async handleDrawOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {
+        const game = await this.getValidatedActiveGame(payload.gameId, payload.playerId)
 
+        // Prevent spam or self-accepting by marking who made the offer
+        if (game.pendingDrawOfferFrom === payload.playerId) return; 
+
+        game.pendingDrawOfferFrom = payload.playerId;
+        await this.gameRepository.save(game);
+
+        // Find the opponent's ID and connection
+        const opponentId = game.whitePlayerId === payload.playerId ? game.blackPlayerId : game.whitePlayerId;
+        const opponentWs = this.playerConnections.get(opponentId);
+
+        // Send Targeted Message to the opponent
+        if (opponentWs && opponentWs.readyState === WebSocket.OPEN) {
+            opponentWs.send(JSON.stringify({
+                type: 'DRAW_OFFERED',
+                payload: {
+                    gameId: game.id
+                }
+            }));
+        }
+    }
+    
+    private async handleDrawAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {
+        const game = await this.getValidatedActiveGame(payload.gameId, payload.playerId);
+
+        // Ensure there is a pending offer and it was made by the OPPONENT
+        if (!game.pendingDrawOfferFrom || game.pendingDrawOfferFrom === payload.playerId) {
+            throw new Error('No valid draw offer to accept');
+        }
+
+        game.gameEnded = true;
+        game.winnerId = null; // null indicates a draw
+        game.pendingDrawOfferFrom = null; 
+        
+        await this.gameRepository.save(game);
+
+        this.broadcastToRoom(game.id, JSON.stringify({
+            type: 'GAME_OVER',
+            payload: {
+                gameId: game.id,
+                reason: 'draw-by-agreement',
+                winnerId: null
+            }
+        }));
+    }
+
+    private async handleRematchOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {
+        const game = await this.getValidatedEndedGame(payload.gameId, payload.playerId);
+
+        // Prevent spam or self-accepting
+        if (game.pendingRematchOfferFrom === payload.playerId) return; 
+
+        game.pendingRematchOfferFrom = payload.playerId;
+        await this.gameRepository.save(game);
+
+        const opponentId = game.whitePlayerId === payload.playerId ? game.blackPlayerId : game.whitePlayerId;
+        const opponentWs = this.playerConnections.get(opponentId);
+
+        if (opponentWs && opponentWs.readyState === WebSocket.OPEN) {
+            opponentWs.send(JSON.stringify({
+                type: 'REMATCH_OFFERED',
+                payload: {
+                    gameId: game.id
+                }
+            }));
+        }
+    }
+
+
+    private async handleRematchAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {
+        const game = await this.getValidatedEndedGame(payload.gameId, payload.playerId);
+
+        // Ensure there is a pending offer from the opponent
+        if (!game.pendingRematchOfferFrom || game.pendingRematchOfferFrom === payload.playerId) {
+            throw new Error('No valid rematch offer to accept');
+        }
+
+        // Clear the offer to prevent duplicate acceptances
+        game.pendingRematchOfferFrom = null;
+        await this.gameRepository.save(game);
+
+        const newGameId = randomUUID();
+        
+        const initialTime = game.baseTimeInSeconds; 
+
+        const newGame: Game = {
+            id: newGameId,
+            fen: startingPositionInFen,
+            pgn: '',
+            // Swap colors for the rematch
+            whitePlayerId: game.blackPlayerId, 
+            blackPlayerId: game.whitePlayerId,
+            turn: 'white',
+            swapAllowed: false,
+            whiteTimeRemainingInSeconds: initialTime,
+            blackTimeRemainingInSeconds: initialTime,
+            baseTimeInSeconds: initialTime,
+            lastMoveTimestamp: Date.now(), 
+            increment: game.increment,
+            pendingDrawOfferFrom: null,
+            pendingRematchOfferFrom: null, 
+            gameEnded: false,
+            winnerId: null           
+        };
+
+        await this.gameRepository.save(newGame);
+
+        // Register the new room
+        this.rooms.set(newGameId, new Set([newGame.whitePlayerId, newGame.blackPlayerId]));
+
+        // Broadcast to the OLD room so both players know to transition
+        this.broadcastToRoom(game.id, JSON.stringify({
+            type: 'REMATCH_ACCEPTED',
+            payload: {
+                oldGameId: game.id,
+                newGameId: newGame.id
+            }
+        }));
+
+        this.rooms.delete(game.id);
+    }
+
+    private async handleMove(ws: WebSocket, payload: { gameId: string, playerId: string, move: TraditionalChessMove | 'swap' }) {
+        // Basic validation
+        await this.getValidatedActiveGame(payload.gameId, payload.playerId);
+
+        // Process the move
+        await this.chessHandler.makeMove(payload.gameId, payload.move, payload.playerId);
+
+        // Fetch the freshly updated game state
+        const game = await this.gameRepository.getById(payload.gameId);
+        if (!game) {
+            throw new Error('Game data is missing after move');
+        }
+
+        // Broadcast the move
+        this.broadcastToRoom(game.id, JSON.stringify({
+            type: 'MOVE_PROCESSED',
+            payload: {
+                gameId: game.id,
+                fen: game.fen,
+                lastMove: payload.move,
+                turn: game.turn,
+                swapAllowed: game.swapAllowed,
+                timeControl: {
+                    whiteTimeRemainingInSeconds: game.whiteTimeRemainingInSeconds,
+                    blackTimeRemainingInSeconds: game.blackTimeRemainingInSeconds,
+                    increment: game.increment
+                }
+            }
+        }));
+
+        if (game.gameEnded) {
+            const reason = game.winnerId ? 'checkmate' : 'draw';
+            
+            this.broadcastToRoom(game.id, JSON.stringify({
+                type: 'GAME_OVER',
+                payload: {
+                    gameId: game.id,
+                    reason: reason,
+                    winnerId: game.winnerId
+                }
+            }));
+        }
+    }
+
+    private broadcastToRoom(gameId: string, message: string) {
+        const roomPlayers = this.rooms.get(gameId);
+        if (!roomPlayers) { return; }
+
+        for (const playerId of roomPlayers) {
+            const playerWs = this.playerConnections.get(playerId);
+            
+            // Only send if the connection exists and is currently open
+            if (playerWs && playerWs.readyState === WebSocket.OPEN) {
+                playerWs.send(message);
+            }
+        }
+    }
+
+    private sendErrorMessage(ws : WebSocket, payload: {code: string, message: string}) {
+        console.error(`Error message sent (${payload.code}): ${payload.message}`);
+
+        ws.send(
+            JSON.stringify(
+                {
+                    type: 'ERROR',
+                    payload: { 
+                        code: payload.code, 
+                        message: payload.message 
+                    }
+                }
+            )
+        )
+    }
+
+    private async getValidatedActiveGame(gameId: string, playerId: string) {
+        const game = await this.gameRepository.getById(gameId);
+
+        if (!game) throw new Error('Game not found');
+        if (game.gameEnded) throw new Error('Game has already ended');
+        
+        if (game.whitePlayerId !== playerId && game.blackPlayerId !== playerId) {
+            throw new Error('Player does not belong to this game');
+        }
+
+        return game;
+    }
+
+    private async getValidatedEndedGame(gameId: string, playerId: string) {
+        const game = await this.gameRepository.getById(gameId);
+
+        if (!game) throw new Error('Game not found');
+        if (!game.gameEnded) throw new Error('Game is not over yet');
+        
+        if (game.whitePlayerId !== playerId && game.blackPlayerId !== playerId) {
+            throw new Error('Player does not belong to this game');
+        }
+
+        return game;
+    }
 }

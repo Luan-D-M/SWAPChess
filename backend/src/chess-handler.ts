@@ -70,7 +70,7 @@ export class ChessHandler {
     }
 
     private updateClock(game: Game, movingPlayerId: string) {
-        const wastedTime = (Date.now() - game.lastMoveTimestamp)/1000
+        const wastedTime = (Date.now() - game.lastMoveTimestamp!)/1000
 
         if (movingPlayerId === game.whitePlayerId) {
             game.whiteTimeRemainingInSeconds -= wastedTime

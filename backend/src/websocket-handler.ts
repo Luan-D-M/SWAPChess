@@ -260,6 +260,7 @@ export class WebSocketHandler {
         game.lastMoveTimestamp =  Date.now()
         await this.gameRepository.save(game)
 
+
         // Broadcast that the game is starting
         this.broadcastToRoom(game.id, JSON.stringify({
             type: 'GAME_STARTED',
@@ -279,15 +280,94 @@ export class WebSocketHandler {
         await this.challengeRepository.delete(payload.challengeId);
     }
     
-    private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
+private async handleRejoin(ws: WebSocket, payload: { gameId: string, playerId: string }) {
+        const roomPlayers = this.rooms.get(payload.gameId);
+
+        // Validate the game exists and the player actually belongs in it
+        if (!roomPlayers || !roomPlayers.has(payload.playerId)) {
+            throw new Error('Invalid game or player ID');
+        }
+
+        // Prevent the player from connecting multi times e.g, multi-tabbing.
+        const currentSocket = this.playerConnections.get(payload.playerId);
+        if (currentSocket !== null && currentSocket?.readyState === WebSocket.OPEN) {
+            throw new Error('You are already connected to this game in another tab');
+        }
+
+        // Reclaim the seat
+        this.playerConnections.set(payload.playerId, ws);
+        console.log(`Player ${payload.playerId} rejoined game ${payload.gameId}.`);
+
     
+        const game = await this.gameRepository.getById(payload.gameId);
+        if (!game) {
+            throw new Error('Game data is missing or corrupted');
+        }
+
+        // Calculate the true remaining time for the active player
+        let currentWhiteTime = game.whiteTimeRemainingInSeconds;
+        let currentBlackTime = game.blackTimeRemainingInSeconds;
+        if (game.lastMoveTimestamp) {
+            const elapsedSeconds = Math.floor((Date.now() - game.lastMoveTimestamp) / 1000);
+            if (game.turn === 'white') {
+                currentWhiteTime = Math.max(0, currentWhiteTime - elapsedSeconds);
+            } else {
+                currentBlackTime = Math.max(0, currentBlackTime - elapsedSeconds);
+            }
+        }
+
+        ws.send(JSON.stringify({
+            type: 'SYNC_GAME', 
+            payload: {
+                gameId: game.id,
+                fen: game.fen,
+                turn: game.turn,
+                whitePlayerId: game.whitePlayerId,
+                blackPlayerId: game.blackPlayerId,
+                whiteTimeRemainingInSeconds: currentWhiteTime,
+                blackTimeRemainingInSeconds: currentBlackTime,
+                increment: game.increment,
+                swapAllowed: game.swapAllowed,
+                pendingDrawOfferFrom: game.pendingDrawOfferFrom
+            }
+        }));
+    }
+
+    private async handleResign(ws: WebSocket, payload: { gameId: string, playerId: string }) {
+        const game = await this.gameRepository.getById(payload.gameId);
+
+        if (!game) throw new Error('Game not found');
+        if (game.gameEnded) throw new Error('Game has already ended');
+        
+        if (game.whitePlayerId !== payload.playerId && game.blackPlayerId !== payload.playerId) {
+            throw new Error('Player does not belong to this game');
+        }
+
+        // The winner is the player who DID NOT send the resign message
+        const winnerId = game.whitePlayerId === payload.playerId ? game.blackPlayerId : game.whitePlayerId;
+
+        game.gameEnded = true;
+        game.winnerId = winnerId;
+        game.pendingDrawOfferFrom = null;
+        
+        await this.gameRepository.save(game);
+
+        this.broadcastToRoom(game.id, JSON.stringify({
+            type: 'GAME_OVER',
+            payload: {
+                gameId: game.id,
+                reason: 'resignation',
+                winnerId: winnerId
+            }
+        }));
+    }
+
     private async handleMove(ws: WebSocket, payload: { gameId: string, playerId: string, move: TraditionalChessMove | 'swap' }) {}
     
     private async handleDrawOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
     private async handleDrawAccept(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
-    private async handleResign(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     
     private async handleRematchOffer(ws: WebSocket, payload: { gameId: string, playerId: string }) {}
     

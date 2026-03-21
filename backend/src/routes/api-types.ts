@@ -1,3 +1,4 @@
+import { Challenge } from "../types/challenge.js";
 import { HostColor } from "../types/hostColor.js";
 import { TimeControl } from "../types/timeControl.js";
 
@@ -9,3 +10,9 @@ export type CreateChallengeBody = {
 export type CreateChallengeResponse = {
   challengeId: string;
 };
+
+export type GetChallengeRequest = {
+  challengeId: string;
+};
+
+export type GetChallengeResponse = Challenge | { error: string };

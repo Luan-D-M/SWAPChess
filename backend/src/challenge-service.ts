@@ -31,4 +31,8 @@ export class ChallengeService {
         
         return id;
     }
+
+    async getChallengeById(id: string): Promise<Challenge | null> {
+        return await this.challengeRepository.getById(id);
+    }
 }

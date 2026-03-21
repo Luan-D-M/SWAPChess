@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 
-import {CreateChallengeBody, CreateChallengeResponse} from './api-types.js'
+import {CreateChallengeBody, CreateChallengeResponse, GetChallengeRequest, GetChallengeResponse} from './api-types.js'
 import { challengeService } from '../index.js';
 
 const router = Router();
@@ -23,12 +23,19 @@ router.post(
     }
 );
 
-/*
-router.post(
-    '/accept-challenge/{challengUUID}',
+router.get(
+    '/challenges/:challengeId',
     async (
-        req: Request<{}, >,
-        res: Response<> ) => {
-        //ToDo
-});
-*/
+        req: Request<GetChallengeRequest, GetChallengeResponse, {}>,
+        res: Response<GetChallengeResponse>
+    ) => {
+        
+        const challenge = await challengeService.getChallengeById(req.params.challengeId);
+
+        if (!challenge) {
+            return res.status(404).json({ error: 'Challenge expired, does not exist, or has already been accepted' });
+        }
+
+        res.status(200).json(challenge);
+    }
+);
